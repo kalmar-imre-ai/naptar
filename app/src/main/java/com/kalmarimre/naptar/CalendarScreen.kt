@@ -2,18 +2,12 @@ package com.kalmarimre.naptar
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -27,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -44,14 +39,73 @@ private val BORDER = Color(0x1AFFFFFF)
 private val HOLIDAY_BG = Color(0x2E3FB97A)
 private val HU = Locale.forLanguageTag("hu-HU")
 
+/** "22 (vasárnap) – 10:00" vagy "24 (csütörtök) – Karácsony" */
+private fun fmtWhen(date: LocalDate, time: String?, name: String?): String {
+    val wd = date.dayOfWeek.getDisplayName(TextStyle.FULL, HU)
+    val base = "%02d (%s)".format(date.dayOfMonth, wd)
+    return when {
+        name != null -> "$base – $name"
+        !time.isNullOrEmpty() -> "$base – $time"
+        else -> base
+    }
+}
+
 @Composable
 fun CalendarScreen() {
+    val context = LocalContext.current
+    var entries by remember { mutableStateOf<List<Entry>>(EntryStore.load(context)) }
     var month by remember { mutableStateOf(YearMonth.now()) }
+    var showDialog by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf<Entry?>(null) }
+    var dialogDate by remember { mutableStateOf(LocalDate.now()) }
+
     val today = LocalDate.now()
     val holidays = remember(month.year) { Holidays.forYear(month.year) }
     val monthName = month.month.getDisplayName(TextStyle.FULL, HU)
 
-    Column(Modifier.fillMaxSize().padding(12.dp)) {
+    fun openNew(date: LocalDate) {
+        editing = null
+        dialogDate = date
+        showDialog = true
+    }
+
+    fun openEdit(e: Entry) {
+        editing = e
+        dialogDate = LocalDate.parse(e.date)
+        showDialog = true
+    }
+
+    if (showDialog) {
+        val target = editing
+        EntryDialog(
+            initial = target,
+            defaultDate = dialogDate,
+            onDismiss = { showDialog = false },
+            onSave = { e ->
+                entries = if (entries.any { it.id == e.id }) {
+                    entries.map { if (it.id == e.id) e else it }
+                } else {
+                    entries + e
+                }
+                EntryStore.save(context, entries)
+                showDialog = false
+            },
+            onDelete = if (target == null) null else {
+                {
+                    entries = entries.filter { it.id != target.id }
+                    EntryStore.save(context, entries)
+                    showDialog = false
+                }
+            }
+        )
+    }
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(12.dp)
+    ) {
 
         // Fejléc: hónap léptetés, év | hónap középen
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -77,7 +131,12 @@ fun CalendarScreen() {
             OutlinedButton(onClick = { month = YearMonth.now() }, modifier = Modifier.weight(1f)) {
                 Text("Ma")
             }
-            Button(onClick = { }, modifier = Modifier.weight(1f)) {
+            Button(
+                onClick = {
+                    openNew(if (YearMonth.from(today) == month) today else month.atDay(1))
+                },
+                modifier = Modifier.weight(1f)
+            ) {
                 Text("Új")
             }
         }
@@ -103,7 +162,6 @@ fun CalendarScreen() {
                 Modifier.fillMaxWidth().height(58.dp).padding(vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Az adott sor hétfője -> ISO hétszám
                 val monday = first.plusDays((row * 7 - offset).toLong())
                 Box(Modifier.width(24.dp), contentAlignment = Alignment.Center) {
                     Text(
@@ -118,6 +176,7 @@ fun CalendarScreen() {
                     val inMonth = date.month == month.month
                     val isHoliday = inMonth && holidays.containsKey(date)
                     val isToday = date == today
+                    val dayEntries = if (inMonth) entries.filter { it.occursOn(date) } else emptyList()
 
                     Box(
                         Modifier
@@ -140,17 +199,63 @@ fun CalendarScreen() {
                                     else -> Color.Transparent
                                 },
                                 shape = RoundedCornerShape(8.dp)
-                            ),
-                        contentAlignment = Alignment.TopStart
+                            )
+                            .clickable(enabled = inMonth) { openNew(date) }
                     ) {
                         if (inMonth) {
                             Text(
                                 text = "%02d".format(date.dayOfMonth),
-                                modifier = Modifier.padding(6.dp),
+                                modifier = Modifier.align(Alignment.TopStart).padding(6.dp),
                                 fontSize = 18.sp,
                                 color = if (isHoliday) SUCCESS else MaterialTheme.colorScheme.onSurface
                             )
+                            if (dayEntries.isNotEmpty()) {
+                                Row(
+                                    modifier = Modifier.align(Alignment.TopEnd).padding(6.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(3.dp)
+                                ) {
+                                    dayEntries.take(4).forEach {
+                                        Box(Modifier.size(6.dp).clip(CircleShape).background(ACCENT))
+                                    }
+                                }
+                            }
                         }
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        // Havi lista: ünnepek és bejegyzések
+        val monthDays = (1..month.lengthOfMonth())
+            .map { month.atDay(it) }
+            .filter { d -> holidays.containsKey(d) || entries.any { it.occursOn(d) } }
+
+        if (monthDays.isEmpty()) {
+            Text("Nincs bejegyzés.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            monthDays.forEach { date ->
+                holidays[date]?.let { name ->
+                    Text(
+                        text = fmtWhen(date, null, name),
+                        color = SUCCESS,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+                    )
+                }
+                entries.filter { it.occursOn(date) }.sortedBy { it.time }.forEach { e ->
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable { openEdit(e) }
+                            .padding(vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = fmtWhen(date, e.time, null),
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(text = e.title, fontSize = 15.sp)
                     }
                 }
             }
