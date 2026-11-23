@@ -39,9 +39,11 @@ class MainActivity : ComponentActivity() {
                 colorScheme = darkColorScheme(
                     background = Color(0xFF0B0B0D),
                     surface = Color(0xFF0B0B0D),
+                    surfaceContainerHigh = Color(0xFF141417),
                     onSurface = Color(0xFFF2F2F4),
                     onSurfaceVariant = Color(0xFF9A9AA3),
-                    primary = Color(0xFFF26B1D)
+                    primary = Color(0xFFF26B1D),
+                    onPrimary = Color(0xFF120A05)
                 )
             ) {
                 Surface(modifier = Modifier.fillMaxSize()) {
