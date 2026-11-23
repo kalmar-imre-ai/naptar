@@ -92,6 +92,7 @@ fun CalendarScreen() {
             },
             onDelete = if (target == null) null else {
                 {
+                    Scheduler.cancel(context, target.id)
                     entries = entries.filter { it.id != target.id }
                     EntryStore.save(context, entries)
                     showDialog = false
