@@ -94,7 +94,10 @@ class ReminderReceiver : BroadcastReceiver() {
         val body = intent.getStringExtra(EXTRA_BODY) ?: ""
 
         when (intent.action) {
-            ACTION_FIRE -> Notifier.show(context, id, title, body)
+            ACTION_FIRE -> {
+                Notifier.show(context, id, title, body)
+                EntryStore.load(context).firstOrNull { it.id == id }?.let { Scheduler.schedule(context, it) }
+            }
             ACTION_SNOOZE -> {
                 NotificationManagerCompat.from(context).cancel(id.hashCode())
                 Scheduler.snooze(context, id, title, SNOOZE_MINUTES)
