@@ -43,7 +43,11 @@ class MainActivity : ComponentActivity() {
                     onSurface = Color(0xFFF2F2F4),
                     onSurfaceVariant = Color(0xFF9A9AA3),
                     primary = Color(0xFFF26B1D),
-                    onPrimary = Color(0xFF120A05)
+                    onPrimary = Color(0xFF120A05),
+                    primaryContainer = Color(0xFFF26B1D),
+                    onPrimaryContainer = Color(0xFF120A05),
+                    secondaryContainer = Color(0xFFF26B1D),
+                    onSecondaryContainer = Color(0xFF120A05)
                 )
             ) {
                 Surface(modifier = Modifier.fillMaxSize()) {
