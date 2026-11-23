@@ -45,7 +45,6 @@ private val ACCENT = Color(0xFFF26B1D)
 private val SUCCESS = Color(0xFF3FB97A)
 private val CELL = Color(0x0FFFFFFF)
 private val BORDER = Color(0x1AFFFFFF)
-private val HOLIDAY_BG = Color(0x2E3FB97A)
 private val HU = Locale.forLanguageTag("hu-HU")
 
 /** "22 (vasárnap) – 10:00" vagy "24 (csütörtök) – Karácsony" */
@@ -322,7 +321,7 @@ fun CalendarScreen() {
                             .background(
                                 when {
                                     !inMonth -> Color.Transparent
-                                    isHoliday -> HOLIDAY_BG
+                                    isHoliday -> Color.Transparent
                                     else -> CELL
                                 }
                             )
@@ -375,6 +374,7 @@ fun CalendarScreen() {
                     Text(
                         text = fmtWhen(date, null, name),
                         color = SUCCESS,
+                        fontSize = 13.sp,
                         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
                     )
                 }
