@@ -12,6 +12,7 @@ object Holidays {
         map[LocalDate.of(y, 5, 1)] = "Munkaszüneti nap"
         map[LocalDate.of(y, 8, 20)] = "Állami ünnep"
         map[LocalDate.of(y, 10, 23)] = "Nemzeti ünnep"
+        map[LocalDate.of(y, 11, 1)] = "Mindenszentek"
         map[LocalDate.of(y, 12, 24)] = "Karácsony"
         map[LocalDate.of(y, 12, 25)] = "Karácsony"
         map[LocalDate.of(y, 12, 26)] = "Karácsony"
