@@ -7,11 +7,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -19,8 +25,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
+import java.time.ZoneOffset
 import java.util.UUID
 
 private val REPEATS = listOf(
@@ -32,10 +42,22 @@ private val REPEATS = listOf(
     "yearly" to "Évente"
 )
 
+private val PANEL = Color(0xFF141417)
+
+private fun LocalDate.toMillis(): Long =
+    atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+
+private fun Long.toLocalDate(): LocalDate =
+    Instant.ofEpochMilli(this).atZone(ZoneOffset.UTC).toLocalDate()
+
+private fun fmtDate(d: LocalDate): String =
+    "%04d. %02d. %02d.".format(d.year, d.monthValue, d.dayOfMonth)
+
 /**
  * Szerkesztő panel. initial = null esetén új bejegyzés.
  * onDelete = null esetén nincs törlés gomb.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EntryDialog(
     initial: Entry?,
@@ -45,15 +67,62 @@ fun EntryDialog(
     onDelete: (() -> Unit)?
 ) {
     var title by remember { mutableStateOf(initial?.title ?: "") }
-    var date by remember { mutableStateOf(initial?.date ?: defaultDate.toString()) }
-    var time by remember { mutableStateOf(initial?.time ?: "10:00") }
+    var date by remember { mutableStateOf(initial?.let { LocalDate.parse(it.date) } ?: defaultDate) }
+    var time by remember { mutableStateOf(initial?.time?.takeIf { it.isNotEmpty() } ?: "10:00") }
     var repeat by remember { mutableStateOf(initial?.repeat ?: "none") }
     var remind by remember { mutableStateOf(initial?.remind ?: true) }
+    var showDate by remember { mutableStateOf(false) }
+    var showTime by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
+
+    if (showDate) {
+        val state = rememberDatePickerState(initialSelectedDateMillis = date.toMillis())
+        DatePickerDialog(
+            onDismissRequest = { showDate = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    state.selectedDateMillis?.let { date = it.toLocalDate() }
+                    showDate = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDate = false }) { Text("Mégse") }
+            },
+            tonalElevation = 0.dp
+        ) {
+            DatePicker(state = state)
+        }
+    }
+
+    if (showTime) {
+        val parsed = runCatching { LocalTime.parse(time) }.getOrDefault(LocalTime.of(10, 0))
+        val state = rememberTimePickerState(
+            initialHour = parsed.hour,
+            initialMinute = parsed.minute,
+            is24Hour = true
+        )
+        AlertDialog(
+            onDismissRequest = { showTime = false },
+            containerColor = PANEL,
+            tonalElevation = 0.dp,
+            text = { TimePicker(state = state) },
+            confirmButton = {
+                TextButton(onClick = {
+                    time = "%02d:%02d".format(state.hour, state.minute)
+                    showTime = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTime = false }) { Text("Mégse") }
+            }
+        )
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (initial == null) "Új bejegyzés" else "Bejegyzés szerkesztése") },
+        containerColor = PANEL,
+        tonalElevation = 0.dp,
+        title = { Text(if (initial == null) "Új bejegyzés" else "Szerkesztés") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(
@@ -63,20 +132,23 @@ fun EntryDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
-                    value = date,
-                    onValueChange = { date = it },
-                    label = { Text("Dátum (éééé-hh-nn)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = time,
-                    onValueChange = { time = it },
-                    label = { Text("Időpont (óó:pp)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = { showDate = true },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(fmtDate(date))
+                    }
+                    OutlinedButton(
+                        onClick = { showTime = true },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(time)
+                    }
+                }
                 // Koppintásra a következő ismétlési módra vált
                 val label = REPEATS.first { it.first == repeat }.second
                 OutlinedButton(
@@ -86,31 +158,25 @@ fun EntryDialog(
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Ismétlés: $label")
+                    Text(label)
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = remind, onCheckedChange = { remind = it })
-                    Text("Hangjelzés az időpontban")
+                    Text("Hangjelzés")
                 }
                 errorMsg?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
         },
         confirmButton = {
             Button(onClick = {
-                val parsedDate = runCatching { LocalDate.parse(date) }.getOrNull()
-                val validTime = time.isEmpty() || Regex("""\d{2}:\d{2}""").matches(time)
                 if (title.isBlank()) {
                     errorMsg = "Adj meg címet."
-                } else if (parsedDate == null) {
-                    errorMsg = "Érvénytelen dátum (éééé-hh-nn)."
-                } else if (!validTime) {
-                    errorMsg = "Érvénytelen időpont (óó:pp)."
                 } else {
                     onSave(
                         Entry(
                             id = initial?.id ?: UUID.randomUUID().toString(),
                             title = title.trim(),
-                            date = parsedDate.toString(),
+                            date = date.toString(),
                             time = time,
                             repeat = repeat,
                             remind = remind
