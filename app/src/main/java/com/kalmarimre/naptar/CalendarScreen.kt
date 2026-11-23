@@ -1,5 +1,7 @@
 package com.kalmarimre.naptar
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -8,10 +10,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -58,6 +62,41 @@ fun CalendarScreen() {
     var showDialog by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<Entry?>(null) }
     var dialogDate by remember { mutableStateOf(LocalDate.now()) }
+    var message by remember { mutableStateOf<String?>(null) }
+    var pendingImport by remember { mutableStateOf<List<Entry>?>(null) }
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) {
+            runCatching {
+                context.contentResolver.openOutputStream(uri)?.use { out ->
+                    out.write(Backup.toJson(entries).toByteArray(Charsets.UTF_8))
+                }
+            }.onSuccess {
+                message = "Mentés elkészült (${entries.size} bejegyzés)."
+            }.onFailure {
+                message = "Az exportálás nem sikerült."
+            }
+        }
+    }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            runCatching {
+                val text = context.contentResolver.openInputStream(uri)
+                    ?.bufferedReader()?.use { it.readText() }
+                    ?: throw IllegalArgumentException("A fájl nem olvasható.")
+                Backup.fromJson(text)
+            }.onSuccess {
+                pendingImport = it
+            }.onFailure {
+                message = it.message ?: "Az importálás nem sikerült."
+            }
+        }
+    }
 
     val today = LocalDate.now()
     val holidays = remember(month.year) { Holidays.forYear(month.year) }
@@ -101,6 +140,42 @@ fun CalendarScreen() {
         )
     }
 
+    // Üzenet panel (export/import eredménye vagy hiba)
+    message?.let { text ->
+        AlertDialog(
+            onDismissRequest = { message = null },
+            text = { Text(text) },
+            confirmButton = {
+                TextButton(onClick = { message = null }) { Text("OK") }
+            }
+        )
+    }
+
+    // Importálás megerősítése
+    pendingImport?.let { incoming ->
+        AlertDialog(
+            onDismissRequest = { pendingImport = null },
+            title = { Text("Importálás") },
+            text = {
+                Text(
+                    "Importálod a ${incoming.size} bejegyzést? " +
+                    "Az azonos azonosítójú bejegyzések felülíródnak, a többi megmarad."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    entries = Backup.merge(entries, incoming)
+                    EntryStore.save(context, entries)
+                    pendingImport = null
+                    message = "${incoming.size} bejegyzés importálva."
+                }) { Text("Importálás") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingImport = null }) { Text("Mégse") }
+            }
+        )
+    }
+
     Column(
         Modifier
             .fillMaxSize()
@@ -139,6 +214,25 @@ fun CalendarScreen() {
                 modifier = Modifier.weight(1f)
             ) {
                 Text("Új")
+            }
+        }
+
+        // Exportálás és Importálás, azonos szélességben
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedButton(
+                onClick = { exportLauncher.launch("naptar-mentes-${LocalDate.now()}.json") },
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("Exportálás")
+            }
+            OutlinedButton(
+                onClick = { importLauncher.launch(arrayOf("*/*")) },
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("Importálás")
             }
         }
 
