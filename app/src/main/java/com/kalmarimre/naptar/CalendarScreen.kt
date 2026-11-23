@@ -2,6 +2,7 @@ package com.kalmarimre.naptar
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,6 +26,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -54,6 +59,41 @@ private fun fmtWhen(date: LocalDate, time: String?, name: String?): String {
     }
 }
 
+/** Saját rajzolt léptető nyíl. forward = true: jobbra mutat */
+@Composable
+private fun NavButton(forward: Boolean, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .size(width = 64.dp, height = 44.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(CELL)
+            .border(1.dp, BORDER, RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(Modifier.size(16.dp, 22.dp)) {
+            val w = size.width
+            val h = size.height
+            val path = Path().apply {
+                if (forward) {
+                    moveTo(w * 0.25f, 0f)
+                    lineTo(w * 0.75f, h / 2)
+                    lineTo(w * 0.25f, h)
+                } else {
+                    moveTo(w * 0.75f, 0f)
+                    lineTo(w * 0.25f, h / 2)
+                    lineTo(w * 0.75f, h)
+                }
+            }
+            drawPath(
+                path,
+                ACCENT,
+                style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+            )
+        }
+    }
+}
+
 @Composable
 fun CalendarScreen() {
     val context = LocalContext.current
@@ -76,7 +116,7 @@ fun CalendarScreen() {
             }.onSuccess {
                 message = "Mentés elkészült (${entries.size} bejegyzés)."
             }.onFailure {
-                message = "Az exportálás nem sikerült."
+                message = "A mentés nem sikerült."
             }
         }
     }
@@ -93,7 +133,7 @@ fun CalendarScreen() {
             }.onSuccess {
                 pendingImport = it
             }.onFailure {
-                message = it.message ?: "Az importálás nem sikerült."
+                message = it.message ?: "A betöltés nem sikerült."
             }
         }
     }
@@ -140,10 +180,12 @@ fun CalendarScreen() {
         )
     }
 
-    // Üzenet panel (export/import eredménye vagy hiba)
+    // Üzenet panel (mentés/betöltés eredménye vagy hiba)
     message?.let { text ->
         AlertDialog(
             onDismissRequest = { message = null },
+            containerColor = Color(0xFF141417),
+            tonalElevation = 0.dp,
             text = { Text(text) },
             confirmButton = {
                 TextButton(onClick = { message = null }) { Text("OK") }
@@ -151,14 +193,16 @@ fun CalendarScreen() {
         )
     }
 
-    // Importálás megerősítése
+    // Betöltés megerősítése
     pendingImport?.let { incoming ->
         AlertDialog(
             onDismissRequest = { pendingImport = null },
-            title = { Text("Importálás") },
+            containerColor = Color(0xFF141417),
+            tonalElevation = 0.dp,
+            title = { Text("Betöltés") },
             text = {
                 Text(
-                    "Importálod a ${incoming.size} bejegyzést? " +
+                    "Betöltöd a ${incoming.size} bejegyzést? " +
                     "Az azonos azonosítójú bejegyzések felülíródnak, a többi megmarad."
                 )
             },
@@ -167,8 +211,8 @@ fun CalendarScreen() {
                     entries = Backup.merge(entries, incoming)
                     EntryStore.save(context, entries)
                     pendingImport = null
-                    message = "${incoming.size} bejegyzés importálva."
-                }) { Text("Importálás") }
+                    message = "${incoming.size} bejegyzés betöltve."
+                }) { Text("Betöltés") }
             },
             dismissButton = {
                 TextButton(onClick = { pendingImport = null }) { Text("Mégse") }
@@ -183,20 +227,16 @@ fun CalendarScreen() {
             .padding(12.dp)
     ) {
 
-        // Fejléc: hónap léptetés, év | hónap középen
+        // Fejléc: léptető nyilak, év. hónap középen
         Row(verticalAlignment = Alignment.CenterVertically) {
-            OutlinedButton(onClick = { month = month.minusMonths(1) }) {
-                Text("‹", fontSize = 22.sp)
-            }
+            NavButton(forward = false) { month = month.minusMonths(1) }
             Text(
-                text = "${month.year} | $monthName",
+                text = "${month.year}. $monthName",
                 modifier = Modifier.weight(1f),
                 textAlign = TextAlign.Center,
                 fontSize = 20.sp
             )
-            OutlinedButton(onClick = { month = month.plusMonths(1) }) {
-                Text("›", fontSize = 22.sp)
-            }
+            NavButton(forward = true) { month = month.plusMonths(1) }
         }
 
         // Ma és Új gombok, azonos szélességben
@@ -217,7 +257,7 @@ fun CalendarScreen() {
             }
         }
 
-        // Exportálás és Importálás, azonos szélességben
+        // Mentés és Betöltés, azonos szélességben
         Row(
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -226,13 +266,13 @@ fun CalendarScreen() {
                 onClick = { exportLauncher.launch("naptar-mentes-${LocalDate.now()}.json") },
                 modifier = Modifier.weight(1f)
             ) {
-                Text("Exportálás")
+                Text("Mentés")
             }
             OutlinedButton(
                 onClick = { importLauncher.launch(arrayOf("*/*")) },
                 modifier = Modifier.weight(1f)
             ) {
-                Text("Importálás")
+                Text("Betöltés")
             }
         }
 
@@ -254,7 +294,7 @@ fun CalendarScreen() {
 
         for (row in 0 until 6) {
             Row(
-                Modifier.fillMaxWidth().height(58.dp).padding(vertical = 2.dp),
+                Modifier.fillMaxWidth().padding(vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 val monday = first.plusDays((row * 7 - offset).toLong())
@@ -276,9 +316,9 @@ fun CalendarScreen() {
                     Box(
                         Modifier
                             .weight(1f)
-                            .fillMaxHeight()
                             .padding(2.dp)
-                            .clip(RoundedCornerShape(8.dp))
+                            .aspectRatio(1f)
+                            .clip(RoundedCornerShape(10.dp))
                             .background(
                                 when {
                                     !inMonth -> Color.Transparent
@@ -293,24 +333,24 @@ fun CalendarScreen() {
                                     inMonth -> BORDER
                                     else -> Color.Transparent
                                 },
-                                shape = RoundedCornerShape(8.dp)
+                                shape = RoundedCornerShape(10.dp)
                             )
-                            .clickable(enabled = inMonth) { openNew(date) }
+                            .clickable(enabled = inMonth) { openNew(date) },
+                        contentAlignment = Alignment.Center
                     ) {
                         if (inMonth) {
                             Text(
                                 text = "%02d".format(date.dayOfMonth),
-                                modifier = Modifier.align(Alignment.TopStart).padding(6.dp),
-                                fontSize = 18.sp,
+                                fontSize = 16.sp,
                                 color = if (isHoliday) SUCCESS else MaterialTheme.colorScheme.onSurface
                             )
                             if (dayEntries.isNotEmpty()) {
                                 Row(
-                                    modifier = Modifier.align(Alignment.TopEnd).padding(6.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(3.dp)
+                                    modifier = Modifier.align(Alignment.TopEnd).padding(4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(2.dp)
                                 ) {
                                     dayEntries.take(4).forEach {
-                                        Box(Modifier.size(6.dp).clip(CircleShape).background(ACCENT))
+                                        Box(Modifier.size(5.dp).clip(CircleShape).background(ACCENT))
                                     }
                                 }
                             }
@@ -335,7 +375,7 @@ fun CalendarScreen() {
                     Text(
                         text = fmtWhen(date, null, name),
                         color = SUCCESS,
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
                     )
                 }
                 entries.filter { it.occursOn(date) }.sortedBy { it.time }.forEach { e ->
@@ -343,7 +383,7 @@ fun CalendarScreen() {
                         Modifier
                             .fillMaxWidth()
                             .clickable { openEdit(e) }
-                            .padding(vertical = 8.dp)
+                            .padding(vertical = 4.dp)
                     ) {
                         Text(
                             text = fmtWhen(date, e.time, null),
