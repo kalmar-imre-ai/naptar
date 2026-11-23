@@ -79,7 +79,7 @@ object Notifier {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setAutoCancel(true)
-            .addAction(0, "Szundi $SNOOZE_MINUTES perc", snoozePi)
+            .addAction(0, "Szundi", snoozePi)
             .addAction(0, "Elvetés", dismissPi)
             .build()
 
