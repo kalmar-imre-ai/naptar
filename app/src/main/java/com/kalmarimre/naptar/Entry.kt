@@ -69,5 +69,8 @@ object EntryStore {
             })
         }
         File(ctx.filesDir, FILE).writeText(arr.toString())
+
+        // Mentés után minden emlékeztető következő időpontját újraszámoljuk
+        entries.forEach { Scheduler.schedule(ctx, it) }
     }
 }
