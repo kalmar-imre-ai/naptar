@@ -5,6 +5,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -30,7 +33,12 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: gradle assembleRelease
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: naptar-apk
-          path: app/build/outputs/apk/release/*.apk
+      - name: Kiadás létrehozása az APK-val
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v1.0.${{ github.run_number }}"
+          cp app/build/outputs/apk/release/app-release.apk "naptar-$TAG.apk"
+          gh release create "$TAG" "naptar-$TAG.apk" \
+            --title "Naptár $TAG" \
+            --notes "Automatikus build"
