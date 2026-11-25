@@ -41,7 +41,7 @@ import java.time.temporal.IsoFields
 import java.util.Locale
 
 private val WEEKDAYS = listOf("H", "K", "Sz", "Cs", "P", "Szo", "V")
-private val ACCENT = Color(0xFFF26B1D)
+private val ACCENT = Color(0xFF6D4AFF)
 private val SUCCESS = Color(0xFF3FB97A)
 private val CELL = Color(0x0FFFFFFF)
 private val BORDER = Color(0x1AFFFFFF)
