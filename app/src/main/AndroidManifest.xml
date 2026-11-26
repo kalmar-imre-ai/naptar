@@ -9,6 +9,13 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- Emlékeztetők újraütemezése a telefon újraindítása után -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Újraindítás vagy frissítés után újraütemezi az emlékeztetőket -->
+    <receiver android:name=".BootReceiver" android:exported="true">
+        <intent-filter>
+            <action android:name="android.intent.action.BOOT_COMPLETED" />
+            <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+        </intent-filter>
+    </receiver>
 
     <application
         android:allowBackup="false"
