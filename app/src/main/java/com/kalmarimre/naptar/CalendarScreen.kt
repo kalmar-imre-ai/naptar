@@ -244,7 +244,7 @@ fun CalendarScreen() {
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             OutlinedButton(onClick = { month = YearMonth.now() }, modifier = Modifier.weight(1f)) {
-                Text("Ma")
+                Text("Ma", color = Color.White)
             }
             Button(
                 onClick = {
@@ -265,13 +265,13 @@ fun CalendarScreen() {
                 onClick = { exportLauncher.launch("naptar-mentes-${LocalDate.now()}.json") },
                 modifier = Modifier.weight(1f)
             ) {
-                Text("Mentés")
+                Text("Mentés", color = Color.White)
             }
             OutlinedButton(
                 onClick = { importLauncher.launch(arrayOf("*/*")) },
                 modifier = Modifier.weight(1f)
             ) {
-                Text("Betöltés")
+                Text("Betöltés", color = Color.White)
             }
         }
 
