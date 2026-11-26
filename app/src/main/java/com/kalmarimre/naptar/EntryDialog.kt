@@ -69,7 +69,7 @@ private fun fmtDate(d: LocalDate): String =
 /** Kuka ikon, rajzolva (nincs külső ikoncsomag) */
 @Composable
 private fun TrashButton(onClick: () -> Unit) {
-    val tint = MaterialTheme.colorScheme.error
+    val tint = Color.White
     Box(
         Modifier
             .size(44.dp)
@@ -213,14 +213,14 @@ fun EntryDialog(
                         modifier = Modifier.weight(2f),
                         contentPadding = PaddingValues(horizontal = 8.dp)
                     ) {
-                        Text(fmtDate(date), maxLines = 1)
+                        Text(fmtDate(date), maxLines = 1, color = Color.White)
                     }
                     OutlinedButton(
                         onClick = { showTime = true },
                         modifier = Modifier.weight(1f),
                         contentPadding = PaddingValues(horizontal = 8.dp)
                     ) {
-                        Text(time, maxLines = 1)
+                        Text(time, maxLines = 1, color = Color.White)
                     }
                 }
                 // Koppintásra a következő ismétlési módra vált
@@ -232,7 +232,7 @@ fun EntryDialog(
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(label)
+                    Text(label, color = Color.White)
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = remind, onCheckedChange = { remind = it })
